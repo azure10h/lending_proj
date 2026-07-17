@@ -274,7 +274,7 @@ export default function Home() {
 
   const ensureSession = async () => {
     if (sessionRef.current) return sessionRef.current;
-    const ort = await import("onnxruntime-web");
+    const ort = await import("onnxruntime-web/wasm");
     ort.env.wasm.numThreads = 1;
     ort.env.wasm.wasmPaths = "/wasm/";
     const session = await ort.InferenceSession.create("/model/model.onnx", { executionProviders: ["wasm"] });
