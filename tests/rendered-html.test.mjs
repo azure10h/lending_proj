@@ -30,10 +30,15 @@ test("ships model and aggregate artifacts without source records", async () => {
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
-  assert.equal(JSON.parse(dashboard).portfolio.loans, 396030);
-  assert.equal(JSON.parse(dashboard).rejected.total, 27648741);
+  const dashboardData = JSON.parse(dashboard);
+  assert.equal(dashboardData.portfolio.loans, 396030);
+  assert.equal(dashboardData.rejected.total, 27648741);
+  assert.equal(dashboardData.model.rejectInference.method, "Post-stratification inverse-propensity weighting");
+  assert.deepEqual(Object.keys(dashboardData.model.rejectInference.scenarios), ["3", "5", "10", "20"]);
+  assert.ok(dashboardData.model.rejectInference.matchedRejectedApplications > 1_000_000);
   assert.equal(JSON.parse(contract).featureNames.length, 48);
   assert.match(page, /Generate risk assessment/);
+  assert.match(page, /Reject inference sensitivity/);
   assert.match(page, /NOT VALIDATED/);
   assert.match(packageJson, /onnxruntime-web/);
   assert.doesNotMatch(`${dashboard}${contract}`, /Michelle Gateway|emp_title|zip code/i);

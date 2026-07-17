@@ -62,15 +62,17 @@ Applicant inputs are not transmitted to an application server.
 | Completed loans | 396,030 | Jun 2007–Dec 2016 | Portfolio EDA and labeled modeling source |
 | Charged-off loans | 77,673 | Jun 2007–Dec 2016 | Positive target observations |
 | Maturity-eligible loans | 313,116 | Through term-specific cutoffs | Model-development population |
-| Rejected applications | 27,648,741 | 2007–2018 | Aggregate population monitoring only |
+| Rejected applications | 27,648,741 | 2007–2018 | Aggregate monitoring and unlabeled selection-bias sensitivity |
 
 The completed-loan portfolio contains **$5.59B** in originated principal and an
 observed bad rate of **19.61%**.
 
 Rejected applications represent approximately **$363.12B** in requested
 principal. They do not have subsequent Lending Club repayment outcomes, so they
-are not labeled as good or bad and are never used to train or evaluate the PD
-model. Treating rejection as default would create a false target.
+are never labeled as good or bad and are excluded from primary PD-model
+training and evaluation. Treating rejection as default would create a false
+target. Their common application-time characteristics are used separately in
+an inverse-propensity-weighting sensitivity challenger.
 
 ### Outcome definition
 
@@ -242,6 +244,25 @@ than 0.01, in which case Logistic Regression is preferred for interpretability.
 LightGBM's validation ROC-AUC is **0.6611** versus **0.6497** for Logistic
 Regression, a difference of approximately **0.0115**. It therefore exceeds the
 interpretability preference margin and becomes the champion.
+
+### Reject-inference sensitivity challenger
+
+The monitoring workspace includes a post-stratification
+inverse-propensity-weighting (IPW) analysis. Historical booked and rejected
+applications are grouped using four fields available in both files:
+application year, requested amount, DTI, and employment length. Observed booked
+outcomes are then reweighted toward the rejected-applicant profile.
+
+The dashboard exposes weight caps of 3×, 5×, 10×, and 20×. Higher caps allow
+historically underrepresented application cells to exert more influence but
+reduce effective sample size and increase variance. The 10× scenario, for
+example, reduces the effective training population from 105,410 to about
+68,878, changes mean absolute test PD by 1.95 percentage points, and lowers
+test ROC-AUC from 0.6671 to 0.6632.
+
+This is a selection-bias stress test, not labeled reject inference. Performance
+is still evaluated only on booked loans with observed outcomes, so it cannot
+establish how rejected applicants would actually have performed.
 
 ## Model performance
 

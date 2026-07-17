@@ -54,6 +54,9 @@ CATEGORICAL_FEATURES = [
     "application_type",
 ]
 FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES
+REJECT_WEIGHT_CAPS = [3, 5, 10, 20]
+SELECTION_AMOUNT_BINS = [-np.inf, 5_000, 10_000, 15_000, 20_000, 30_000, np.inf]
+SELECTION_DTI_BINS = [-np.inf, 10, 20, 30, 40, np.inf]
 
 
 def json_default(value):
@@ -76,6 +79,31 @@ def parse_emp_length(value) -> str:
     if pd.isna(value):
         return "Missing/Unknown"
     return str(value).strip()
+
+
+def selection_keys(year, amount, dti, employment) -> pd.Series:
+    """Create auditable common-feature cells for acceptance-bias weighting."""
+    frame = pd.DataFrame({
+        "year": pd.to_numeric(year, errors="coerce").fillna(-1).astype(int),
+        "amount": pd.to_numeric(amount, errors="coerce"),
+        "dti": pd.to_numeric(dti, errors="coerce"),
+        "employment": pd.Series(employment).fillna("Missing/Unknown").astype(str).str.strip(),
+    })
+    frame["amountBand"] = pd.cut(
+        frame["amount"], SELECTION_AMOUNT_BINS, labels=False, include_lowest=True
+    ).fillna(-1).astype(int)
+    frame["dtiBand"] = pd.cut(
+        frame["dti"], SELECTION_DTI_BINS, labels=False, include_lowest=True
+    ).fillna(-1).astype(int)
+    return (
+        frame["year"].astype(str)
+        + "|"
+        + frame["amountBand"].astype(str)
+        + "|"
+        + frame["dtiBand"].astype(str)
+        + "|"
+        + frame["employment"]
+    )
 
 
 def prepare_accepted(path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -170,9 +198,10 @@ def threshold_points(y, p):
     return rows
 
 
-def aggregate_rejected(path: Path) -> dict:
+def aggregate_rejected(path: Path) -> tuple[dict, dict[str, int]]:
     by_year: dict[int, dict] = {}
     states: dict[str, int] = {}
+    selection_cells: dict[str, int] = {}
     total = 0
     amount = 0.0
     risk_present = 0
@@ -180,6 +209,9 @@ def aggregate_rejected(path: Path) -> dict:
         dates = pd.to_datetime(chunk["Application Date"], errors="coerce")
         chunk["year"] = dates.dt.year
         chunk_amount = pd.to_numeric(chunk["Amount Requested"], errors="coerce").fillna(0)
+        chunk_dti = pd.to_numeric(
+            chunk["Debt-To-Income Ratio"].astype(str).str.rstrip("%"), errors="coerce"
+        )
         total += len(chunk)
         amount += float(chunk_amount.sum())
         risk_present += int(chunk["Risk_Score"].notna().sum())
@@ -194,6 +226,11 @@ def aggregate_rejected(path: Path) -> dict:
             current["riskPresent"] += int(row.riskPresent)
         for state, count in chunk["State"].value_counts().items():
             states[str(state)] = states.get(str(state), 0) + int(count)
+        common_keys = selection_keys(
+            chunk["year"], chunk_amount, chunk_dti, chunk["Employment Length"]
+        )
+        for key, count in common_keys.value_counts().items():
+            selection_cells[str(key)] = selection_cells.get(str(key), 0) + int(count)
     return {
         "total": total,
         "amount": amount,
@@ -203,6 +240,91 @@ def aggregate_rejected(path: Path) -> dict:
             for year, values in sorted(by_year.items())
         ],
         "topStates": [{"state": state, "applications": count} for state, count in sorted(states.items(), key=lambda x: x[1], reverse=True)[:12]],
+    }, selection_cells
+
+
+def lightgbm_estimator() -> lgb.LGBMClassifier:
+    return lgb.LGBMClassifier(
+        objective="binary", n_estimators=350, learning_rate=0.03, num_leaves=31,
+        max_depth=6, min_child_samples=100, subsample=0.9, colsample_bytree=0.85,
+        reg_alpha=0.1, reg_lambda=1.0, random_state=SEED, n_jobs=-1, verbosity=-1,
+    )
+
+
+def reject_inference_sensitivity(
+    train: pd.DataFrame,
+    x_train: np.ndarray,
+    y_train: np.ndarray,
+    x_valid: np.ndarray,
+    y_valid: np.ndarray,
+    x_test: np.ndarray,
+    y_test: np.ndarray,
+    rejected_cells: dict[str, int],
+    baseline_test_prob: np.ndarray,
+) -> dict:
+    """Post-stratification sensitivity using accepted/rejected common-feature cells.
+
+    Rejected applications remain unlabeled. The analysis only changes the influence
+    of observed booked outcomes according to historical selection differences.
+    """
+    accepted_keys = selection_keys(
+        train["issue_date"].dt.year,
+        train["loan_amnt"],
+        train["dti"],
+        train["emp_length"],
+    )
+    accepted_counts = accepted_keys.value_counts().to_dict()
+    raw_weights = np.array([
+        1.0 + rejected_cells.get(str(key), 0) / accepted_counts[str(key)]
+        for key in accepted_keys
+    ], dtype=np.float64)
+    matched_rejected = int(sum(
+        rejected_cells.get(str(key), 0) for key in accepted_counts
+    ))
+    train_years = set(train["issue_date"].dt.year.dropna().astype(int).tolist())
+    eligible_rejected = int(sum(
+        count for key, count in rejected_cells.items()
+        if int(key.split("|", 1)[0]) in train_years
+    ))
+
+    scenarios = {}
+    for cap in REJECT_WEIGHT_CAPS:
+        weights = np.minimum(raw_weights, float(cap))
+        weights = weights / weights.mean()
+        estimator = lightgbm_estimator()
+        estimator.fit(x_train, y_train, sample_weight=weights)
+        valid_raw = estimator.predict_proba(x_valid)[:, 1]
+        test_raw = estimator.predict_proba(x_test)[:, 1]
+        calibrator, test_cal = calibrate(y_valid, valid_raw, test_raw)
+        valid_cal = calibrator.predict(valid_raw)
+        scenarios[str(cap)] = {
+            "cap": cap,
+            "effectiveSampleSize": float(weights.sum() ** 2 / np.square(weights).sum()),
+            "weightP95": float(np.quantile(weights, 0.95)),
+            "weightMax": float(weights.max()),
+            "validation": metric_bundle(y_valid, valid_cal),
+            "test": metric_bundle(y_test, test_cal),
+            "meanPd": float(test_cal.mean()),
+            "meanPdShift": float((test_cal - baseline_test_prob).mean()),
+            "meanAbsolutePdShift": float(np.abs(test_cal - baseline_test_prob).mean()),
+            "scoreCorrelation": float(np.corrcoef(test_cal, baseline_test_prob)[0, 1]),
+        }
+
+    return {
+        "method": "Post-stratification inverse-propensity weighting",
+        "commonFeatures": ["application year", "requested amount", "DTI", "employment length"],
+        "matchedRejectedApplications": matched_rejected,
+        "eligibleRejectedApplications": eligible_rejected,
+        "matchedShare": matched_rejected / max(1, eligible_rejected),
+        "baseline": {
+            "test": metric_bundle(y_test, baseline_test_prob),
+            "meanPd": float(baseline_test_prob.mean()),
+        },
+        "scenarios": scenarios,
+        "warning": (
+            "Rejected applications have no repayment outcomes. Weighting tests "
+            "selection sensitivity but does not create observed good/bad labels."
+        ),
     }
 
 
@@ -310,11 +432,7 @@ def main():
     print(f"Training Logistic Regression and LightGBM on {len(train):,} mature loans...")
     logistic = LogisticRegression(C=0.2, max_iter=1000, random_state=SEED)
     logistic.fit(x_train, y_train)
-    lightgbm = lgb.LGBMClassifier(
-        objective="binary", n_estimators=350, learning_rate=0.03, num_leaves=31,
-        max_depth=6, min_child_samples=100, subsample=0.9, colsample_bytree=0.85,
-        reg_alpha=0.1, reg_lambda=1.0, random_state=SEED, n_jobs=-1, verbosity=-1,
-    )
+    lightgbm = lightgbm_estimator()
     lightgbm.fit(x_train, y_train)
 
     candidates = {}
@@ -345,7 +463,19 @@ def main():
     )
 
     print("Aggregating rejected applications...")
-    rejected = aggregate_rejected(rejected_path)
+    rejected, rejected_cells = aggregate_rejected(rejected_path)
+    print("Running reject-inference weighting sensitivity...")
+    reject_sensitivity = reject_inference_sensitivity(
+        train,
+        x_train,
+        y_train,
+        x_valid,
+        y_valid,
+        x_test,
+        y_test,
+        rejected_cells,
+        candidates["LightGBM"]["test_prob"],
+    )
     model_summary = {
         "champion": best,
         "version": "LC-PD-2026.07-v1",
@@ -363,6 +493,7 @@ def main():
         },
         "calibration": calibration_points(y_test, champion["test_prob"]),
         "thresholds": threshold_points(y_test, champion["test_prob"]),
+        "rejectInference": reject_sensitivity,
     }
     dashboard = build_dashboard_data(full, mature, rejected, model_summary)
 

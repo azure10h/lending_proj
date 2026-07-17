@@ -6,7 +6,7 @@ Research and demonstration of a consumer-loan probability-of-default workflow. T
 
 ## Target and population
 
-The target is `Charged Off` versus `Fully Paid` among completed Lending Club loans. Rejected applications are not assigned repayment outcomes and are excluded from model training. Cohorts are maturity-filtered using a 2018 Q4 observation cutoff.
+The target is `Charged Off` versus `Fully Paid` among completed Lending Club loans. Rejected applications are never assigned repayment outcomes and are excluded from primary model training. Cohorts are maturity-filtered using a 2018 Q4 observation cutoff. A separate post-stratification inverse-propensity-weighting sensitivity challenger uses only common application-time fields to test selection bias; it does not replace the primary model or create synthetic good/bad labels.
 
 ## Candidate models
 

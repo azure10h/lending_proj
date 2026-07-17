@@ -209,6 +209,35 @@ button { cursor: pointer; }
 .state-list b { display: block; height: 100%; background: #4c789b; }
 .state-list em { font-style: normal; text-align: right; color: #737b76; font-size: 9px; }
 
+.reject-analysis { margin-top: 20px; padding-top: 20px; border-top: 1px solid #d7dcd7; }
+.reject-analysis-head { padding: 24px 26px; background: linear-gradient(110deg, #1a3548, #245d5d); color: white; display: flex; align-items: end; justify-content: space-between; gap: 24px; border-radius: 8px; }
+.reject-analysis-head .eyebrow { color: #b9d5d1; }
+.reject-analysis-head h2 { margin: 0; font-size: 27px; letter-spacing: -.04em; }
+.reject-analysis-head p { max-width: 720px; margin: 8px 0 0; color: #c5d8d8; font-size: 12px; line-height: 1.6; }
+.cap-control { min-width: 250px; padding: 11px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.13); border-radius: 6px; }
+.cap-control > span { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; color: #c4d5d7; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; font-weight: 750; }
+.cap-control > div { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.cap-control button { border: 1px solid rgba(255,255,255,.17); background: rgba(255,255,255,.06); color: #dbe5e6; padding: 7px 5px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+.cap-control button.active { background: #efc46d; border-color: #efc46d; color: #17374a; }
+.reject-stats { margin-bottom: 0; }
+.sensitivity-table { display: grid; }
+.sensitivity-row { display: grid; grid-template-columns: minmax(160px, 1.5fr) repeat(3, minmax(88px, .7fr)); gap: 10px; align-items: center; padding: 11px 8px; border-bottom: 1px solid #e9ece8; font-size: 10px; text-align: right; }
+.sensitivity-row:last-child { border-bottom: 0; }
+.sensitivity-row > :first-child { text-align: left; }
+.sensitivity-row em { color: #8a5a1d; font-style: normal; font-family: var(--font-geist-mono); }
+.sensitivity-header { color: #78817b; background: #f6f7f4; font-size: 8px; text-transform: uppercase; letter-spacing: .08em; font-weight: 750; }
+.sensitivity-method { display: grid; gap: 13px; }
+.method-badge { display: flex; align-items: center; gap: 10px; padding: 11px; background: #eef5f1; color: var(--green); }
+.method-badge span, .method-badge strong, .method-badge small { display: block; }
+.method-badge strong { font-size: 10px; }
+.method-badge small { margin-top: 3px; color: #65756e; font-size: 8px; }
+.sensitivity-method ul { list-style: none; display: grid; gap: 9px; padding: 0; margin: 0; }
+.sensitivity-method li { display: flex; gap: 8px; align-items: flex-start; color: #606964; font-size: 9px; line-height: 1.45; }
+.sensitivity-method li svg { flex: 0 0 auto; margin-top: 1px; color: var(--green); }
+.sensitivity-method li:nth-child(3) svg { color: var(--amber); }
+.sensitivity-method li:nth-child(4) svg { color: var(--red); }
+.sensitivity-method > p { margin: 0; padding: 10px; color: #80571f; background: #fff7e9; border: 1px solid #ead6b3; font-size: 8px; line-height: 1.5; }
+
 .governance-hero { padding: 28px 30px; background: #18374b; color: white; display: flex; justify-content: space-between; align-items: end; gap: 20px; border-radius: 8px; }
 .governance-hero > div > svg { color: #e2b55c; margin-bottom: 13px; }
 .governance-hero .eyebrow { color: #adc5cd; }
@@ -291,6 +320,10 @@ body { font-size: 14px; line-height: 1.45; }
 .coverage-copy,
 .state-list i,
 .state-list em,
+.cap-control > span,
+.sensitivity-header,
+.method-badge small,
+.sensitivity-method > p,
 .governance-hero a,
 .feature-chips span,
 .excluded-list span,
@@ -303,6 +336,10 @@ body { font-size: 14px; line-height: 1.45; }
 .table-row,
 .model-table th,
 .champion-tag,
+.cap-control button,
+.sensitivity-row,
+.method-badge strong,
+.sensitivity-method li,
 .field > span,
 .reason-list p,
 .limitation-list strong,
@@ -358,6 +395,9 @@ body { font-size: 14px; line-height: 1.45; }
   .model-banner { grid-template-columns: auto 1fr; }
   .model-status { grid-column: 1 / -1; }
   .decision-intro, .governance-hero { align-items: flex-start; flex-direction: column; }
+  .reject-analysis-head { align-items: flex-start; flex-direction: column; }
+  .cap-control { min-width: 0; width: 100%; }
+  .sensitivity-row { grid-template-columns: minmax(125px, 1.2fr) repeat(3, minmax(72px, .7fr)); overflow-x: auto; }
   .form-grid, .compact-fields { grid-template-columns: 1fr; }
   .missing-grid { grid-template-columns: 1fr 1fr; }
   .chart-large { height: 235px; }

@@ -61,6 +61,19 @@ type MetricSet = {
   confusion_matrix: { tn: number; fp: number; fn: number; tp: number };
 };
 
+type RejectInferenceScenario = {
+  cap: number;
+  effectiveSampleSize: number;
+  weightP95: number;
+  weightMax: number;
+  validation: MetricSet;
+  test: MetricSet;
+  meanPd: number;
+  meanPdShift: number;
+  meanAbsolutePdShift: number;
+  scoreCorrelation: number;
+};
+
 type DashboardData = {
   generatedAt: string;
   portfolio: {
@@ -101,6 +114,16 @@ type DashboardData = {
     candidates: Record<string, { validation: MetricSet; test: MetricSet }>;
     calibration: Array<{ bucket: number; actual: number; predicted: number; loans: number }>;
     thresholds: Array<{ threshold: number; approvalRate: number; approvedBadRate: number; badCaptured: number }>;
+    rejectInference: {
+      method: string;
+      commonFeatures: string[];
+      matchedRejectedApplications: number;
+      eligibleRejectedApplications: number;
+      matchedShare: number;
+      baseline: { test: MetricSet; meanPd: number };
+      scenarios: Record<string, RejectInferenceScenario>;
+      warning: string;
+    };
   };
 };
 
@@ -250,6 +273,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [applicant, setApplicant] = useState<Applicant>(DEFAULT_APPLICANT);
   const [threshold, setThreshold] = useState(0.15);
+  const [rejectWeightCap, setRejectWeightCap] = useState("10");
   const [result, setResult] = useState<ScoreResult | null>(null);
   const [scoring, setScoring] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -270,6 +294,8 @@ export default function Home() {
   }, []);
 
   const testMetrics = data ? data.model.candidates[data.model.champion].test : null;
+  const rejectInference = data?.model.rejectInference ?? null;
+  const rejectScenario = rejectInference?.scenarios[rejectWeightCap] ?? null;
   const currentSignal = result ? (result.pd <= threshold ? "APPROVE" : "REJECT") : null;
 
   const ensureSession = async () => {
@@ -627,6 +653,59 @@ export default function Home() {
                   <div className="state-list">{data.rejected.topStates.slice(0, 8).map((row, index) => <div key={row.state}><span><i>{index + 1}</i><strong>{row.state}</strong></span><div><b style={{ width: `${(row.applications / data.rejected.topStates[0].applications) * 100}%` }} /></div><em>{compact.format(row.applications)}</em></div>)}</div>
                 </Panel>
               </section>
+              {rejectInference && rejectScenario && (
+                <section className="reject-analysis">
+                  <div className="reject-analysis-head">
+                    <div>
+                      <span className="eyebrow">SELECTION-BIAS STRESS TEST</span>
+                      <h2>Reject inference sensitivity</h2>
+                      <p>Reweight observed booked outcomes toward the rejected-applicant profile using common application-time fields. No rejected applicant is assigned a synthetic default label.</p>
+                    </div>
+                    <div className="cap-control" aria-label="Inverse propensity weight cap">
+                      <span><SlidersHorizontal size={14} /> Weight cap</span>
+                      <div>{Object.keys(rejectInference.scenarios).map((cap) => <button key={cap} className={rejectWeightCap === cap ? "active" : ""} onClick={() => setRejectWeightCap(cap)}>{cap}×</button>)}</div>
+                    </div>
+                  </div>
+                  <section className="stats-grid reject-stats">
+                    <StatCard label="Matched rejected applications" value={compact.format(rejectInference.matchedRejectedApplications)} detail={`${percent(rejectInference.matchedShare)} of same-period cells`} />
+                    <StatCard label="Effective training sample" value={compact.format(rejectScenario.effectiveSampleSize)} detail={`From ${compact.format(data.model.trainingRows)} observed loans`} tone="amber" />
+                    <StatCard label="Mean PD shift" value={`${rejectScenario.meanPdShift >= 0 ? "+" : ""}${(rejectScenario.meanPdShift * 100).toFixed(2)} pp`} detail={`${(rejectScenario.meanAbsolutePdShift * 100).toFixed(2)} pp mean absolute change`} tone={rejectScenario.meanPdShift > 0 ? "amber" : "green"} />
+                    <StatCard label="Score correlation" value={rejectScenario.scoreCorrelation.toFixed(3)} detail="Original vs weighted PD rank" tone="green" />
+                  </section>
+                  <section className="dashboard-grid two-one">
+                    <Panel title="Original vs weighted holdout performance" eyebrow={`${rejectWeightCap}× WEIGHT-CAP SCENARIO`}>
+                      <div className="sensitivity-table">
+                        <div className="sensitivity-row sensitivity-header"><span>Metric</span><span>Original</span><span>IPW sensitivity</span><span>Change</span></div>
+                        {[
+                          ["ROC–AUC", rejectInference.baseline.test.roc_auc, rejectScenario.test.roc_auc, 3],
+                          ["KS statistic", rejectInference.baseline.test.ks, rejectScenario.test.ks, 3],
+                          ["Mean PD", rejectInference.baseline.meanPd, rejectScenario.meanPd, 1],
+                          ["Approval at 15% PD", rejectInference.baseline.test.approval_rate, rejectScenario.test.approval_rate, 1],
+                          ["Approved bad rate", rejectInference.baseline.test.approved_bad_rate, rejectScenario.test.approved_bad_rate, 1],
+                        ].map(([label, original, weighted, digits]) => {
+                          const base = Number(original);
+                          const adjusted = Number(weighted);
+                          const precision = Number(digits);
+                          const isRate = label === "Mean PD" || String(label).includes("Approval") || String(label).includes("bad rate");
+                          return <div className="sensitivity-row" key={String(label)}><strong>{label}</strong><span>{isRate ? percent(base, precision) : base.toFixed(precision)}</span><span>{isRate ? percent(adjusted, precision) : adjusted.toFixed(precision)}</span><em>{`${adjusted - base >= 0 ? "+" : ""}${isRate ? ((adjusted - base) * 100).toFixed(2) + " pp" : (adjusted - base).toFixed(3)}`}</em></div>;
+                        })}
+                      </div>
+                    </Panel>
+                    <Panel title="Method and guardrails" eyebrow="WHAT THIS TEST MEANS">
+                      <div className="sensitivity-method">
+                        <div className="method-badge"><FlaskConical size={18} /><span><strong>{rejectInference.method}</strong><small>{rejectInference.commonFeatures.join(" · ")}</small></span></div>
+                        <ul>
+                          <li><CheckCircle2 size={14} /> Tests whether historical approval selection materially changes the fitted risk relationship.</li>
+                          <li><CheckCircle2 size={14} /> Caps extreme cell weights and exposes multiple cap scenarios.</li>
+                          <li><AlertTriangle size={14} /> Performance is still measured only on booked loans with observed outcomes.</li>
+                          <li><XCircle size={14} /> This is not proof of rejected-applicant performance or a production reject-inference model.</li>
+                        </ul>
+                        <p>{rejectInference.warning}</p>
+                      </div>
+                    </Panel>
+                  </section>
+                </section>
+              )}
             </>
           )}
 
