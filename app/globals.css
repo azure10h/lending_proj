@@ -241,6 +241,96 @@ button { cursor: pointer; }
 .missing-grid > div > div { height: 5px; margin-top: 6px; background: #e9ece9; }
 .missing-grid i { display: block; height: 100%; background: #d09a42; min-width: 2px; }
 
+/* Readability scale: keep the dense risk workspace legible without changing its hierarchy. */
+body { font-size: 14px; line-height: 1.45; }
+.brand-lockup strong { font-size: 16px; }
+.brand-lockup span,
+.data-pill,
+.validation-pill,
+.stat-card span,
+.panel-meta,
+.chart-tooltip,
+.model-banner p,
+.model-status strong,
+.model-table,
+.decision-intro p,
+.state-list span { font-size: 12px; }
+.nav-item,
+.inline-alert,
+.hero-strip p,
+.primary-button,
+.insight-list strong,
+.form-section-title strong,
+.score-button,
+.chart-tooltip strong { font-size: 14px; }
+.nav-item i,
+.sidebar-note span,
+.sidebar-version,
+.crumb,
+.eyebrow,
+.stat-card p,
+.chart-footnote,
+.insight-list p,
+.insight-list em,
+.privacy-badge,
+.text-button,
+.form-section-title p,
+.input-wrap i,
+.input-wrap em,
+.placeholder-steps,
+.decision-card-head,
+.score-gauge span,
+.recommendation p,
+.validation-warning strong,
+.validation-warning p,
+.threshold-control span,
+.threshold-labels,
+.reason-list span,
+.warning-list,
+.coverage-ring span,
+.coverage-copy,
+.state-list i,
+.state-list em,
+.governance-hero a,
+.feature-chips span,
+.excluded-list span,
+.limitation-list article > span,
+.limitation-list p,
+.control-timeline > div > span,
+.control-timeline p,
+.missing-grid span { font-size: 11px; }
+.sidebar-note strong,
+.table-row,
+.model-table th,
+.champion-tag,
+.field > span,
+.reason-list p,
+.limitation-list strong,
+.control-timeline strong { font-size: 12px; }
+.topbar h1 { font-size: 23px; }
+.hero-strip h2 { font-size: clamp(28px, 3vw, 41px); }
+.stat-card strong { font-size: 28px; }
+.panel-head h3 { font-size: 16px; }
+.table-header { font-size: 11px; }
+.model-banner h2 { font-size: 26px; }
+.decision-intro h2,
+.governance-hero h2 { font-size: 31px; }
+.form-section-title > span { font-size: 11px; }
+.input-wrap,
+.select-wrap { min-height: 44px; }
+.input-wrap input,
+.select-wrap select { padding: 10px 11px; font-size: 14px; }
+.score-button { padding: 14px; }
+.result-placeholder h3 { font-size: 19px; }
+.result-placeholder p { font-size: 13px; }
+.score-gauge strong { font-size: 32px; }
+.recommendation > span { font-size: 15px; }
+.recommendation > strong { font-size: 28px; }
+.threshold-control strong { font-size: 19px; }
+.coverage-ring strong { font-size: 30px; }
+.governance-hero p { font-size: 13px; }
+.recharts-text { font-size: 13px; }
+
 @media (max-width: 1120px) {
   .app-shell { grid-template-columns: 76px minmax(0, 1fr); }
   .sidebar { width: 76px; padding-inline: 10px; }
@@ -271,5 +361,5 @@ button { cursor: pointer; }
   .form-grid, .compact-fields { grid-template-columns: 1fr; }
   .missing-grid { grid-template-columns: 1fr 1fr; }
   .chart-large { height: 235px; }
-  .topbar h1 { font-size: 17px; }
+  .topbar h1 { font-size: 20px; }
 }
