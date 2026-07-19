@@ -394,7 +394,7 @@ export default function Home() {
       <aside className="sidebar">
         <div className="brand-lockup">
           <div className="brand-mark"><Landmark size={22} /></div>
-          <div><strong>Northstar Risk</strong><span>Underwriting Lab</span></div>
+          <div><strong>LendingClub</strong><span>Credit Risk Analysis</span></div>
         </div>
         <nav aria-label="Dashboard sections">
           {NAV_ITEMS.map((item) => {

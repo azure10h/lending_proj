@@ -1,12 +1,12 @@
-# Northstar Risk — Lending Club Underwriting Lab
+# LendingClub Credit Risk Analysis
 
-Northstar Risk is an end-to-end credit-risk research project built on the
+LendingClub Credit Risk Analysis is an end-to-end credit-risk research project built on the
 [Lending Club loan dataset](https://www.kaggle.com/datasets/wordsforthewise/lending-club).
 It combines portfolio analytics, probability-of-default (PD) modeling,
 out-of-time validation, policy simulation, and browser-based applicant scoring
 in one public dashboard.
 
-**Live dashboard:** [northstar-risk-underwriting.azure10h.chatgpt.site](https://northstar-risk-underwriting.azure10h.chatgpt.site)
+**Live dashboard:** [LendingClub Credit Risk Analysis](https://northstar-risk-underwriting.azure10h.chatgpt.site)
 
 > [!WARNING]
 > This project is for research and demonstration only. The model did not pass

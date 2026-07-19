@@ -13,12 +13,12 @@ async function render() {
   );
 }
 
-test("server-renders the Northstar underwriting workspace", async () => {
+test("server-renders the LendingClub credit-risk workspace", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
-  assert.match(html, /Northstar Risk \| Lending Club Underwriting Lab/i);
+  assert.match(html, /LendingClub Credit Risk Analysis/i);
   assert.match(html, /Loading underwriting research workspace/i);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
